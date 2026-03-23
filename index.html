@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Budget Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="€ Tracker">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --accent: #c8f060;
+    --accent-dim: #a0c040;
+    --danger: #ff5f5f;
+    --danger-dim: #cc3333;
+    --text: #f0f0f0;
+    --muted: #888;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    padding: 16px;
+    padding-bottom: 40px;
+  }
+
+  .app { max-width: 420px; margin: 0 auto; }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-top: 8px;
+  }
+  .app-title {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .app-title span { color: var(--accent); }
+
+  /* BUDGET CARD */
+  .budget-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .budget-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    background: var(--accent);
+    opacity: 0.04;
+    border-radius: 50%;
+  }
+
+  .budget-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .budget-remaining {
+    font-family: var(--font-head);
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: var(--accent);
+    transition: color 0.3s;
+  }
+  .budget-remaining.warn { color: #f0a030; }
+  .budget-remaining.danger { color: var(--danger); }
+
+  .budget-of {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .progress-bar-wrap {
+    margin-top: 16px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.4s ease, background 0.3s;
+  }
+  .progress-bar.warn { background: #f0a030; }
+  .progress-bar.danger { background: var(--danger); }
+
+  .budget-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  /* INPUTS & BUTTONS */
+  input[type="number"], input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input:focus { border-color: var(--accent); }
+
+  button {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  button:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--accent);
+    color: #0f0f0f;
+    font-weight: 500;
+  }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger-dim);
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  .btn-icon {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  /* SET BUDGET ROW */
+  .set-budget-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .set-budget-row input { flex: 1; }
+
+  /* SECTION */
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 20px 0 10px;
+  }
+
+  /* DEDUCTION ITEMS */
+  .item-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .item-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .item-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item-amount {
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .item-amount.counter-amount { color: var(--accent-dim); }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 16px;
+    padding: 4px;
+    cursor: pointer;
+    line-height: 1;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .delete-btn:hover { color: var(--danger); }
+  .delete-btn:active { transform: scale(0.9); }
+
+  /* COUNTER CONTROLS */
+  .counter-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .counter-val {
+    font-size: 14px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .btn-counter {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-counter:active { transform: scale(0.9); }
+  .btn-counter.plus { border-color: var(--accent); color: var(--accent); }
+  .btn-counter.minus { border-color: var(--danger); color: var(--danger); }
+
+  /* ADD ITEM FORM */
+  .add-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeIn 0.2s ease;
+  }
+  .add-form.open { display: flex; }
+  .add-form-row { display: flex; gap: 8px; }
+  .add-form-row input { flex: 1; }
+
+  .type-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  .type-btn {
+    flex: 1;
+    padding: 8px;
+    font-size: 12px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .type-btn.active {
+    background: var(--accent);
+    color: #0f0f0f;
+    border-color: var(--accent);
+  }
+
+  /* SUSI SECTION */
+  .susi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-top: 8px;
+  }
+  .susi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .susi-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .susi-link {
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 4px 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .susi-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .susi-tab {
+    flex: 1;
+    padding: 7px;
+    font-size: 11px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .susi-tab.active {
+    background: var(--accent);
+    color: #0f0f0f;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .susi-table { width: 100%; border-collapse: collapse; }
+  .susi-table tr { border-bottom: 1px solid var(--border); }
+  .susi-table tr:last-child { border-bottom: none; }
+  .susi-table td { padding: 9px 4px; font-size: 13px; }
+  .susi-table td:first-child { color: var(--muted); width: 90px; }
+  .susi-table td:last-child { text-align: right; }
+  .susi-row-past td { opacity: 0.38; }
+  .susi-row-next td { color: var(--accent) !important; font-weight: 500; }
+  .susi-row-next td:first-child { color: var(--accent) !important; }
+  .next-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #0f0f0f;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-left: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .days-away { font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
+  .days-away span { color: var(--accent); font-weight: 500; }
+
+  /* RESET */
+  .reset-row {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 99px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    white-space: nowrap;
+    z-index: 999;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* DIVIDER */
+  hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+  .empty-msg {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .edit-budget-wrap { display: none; }
+  .edit-budget-wrap.open { display: flex; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="app-title">my<span>€</span><br>tracker</div>
+  </header>
+
+  <!-- BUDGET CARD -->
+  <div class="budget-card">
+    <div class="budget-label">Remaining</div>
+    <div class="budget-remaining" id="remainingDisplay">€0.00</div>
+    <div class="budget-of" id="budgetOf">of €0.00</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar" style="width:100%"></div>
+    </div>
+    <div class="budget-actions">
+      <button class="btn-ghost" style="flex:1" onclick="toggleEditBudget()">✏️ Set Budget</button>
+      <button class="btn-ghost" style="flex:1" onclick="resetSession()">↩ Reset Session</button>
+    </div>
+    <div class="add-form edit-budget-wrap" id="editBudgetWrap">
+      <div class="add-form-row">
+        <input type="number" id="budgetInput" placeholder="Enter budget (€)" min="0" step="0.01">
+        <button class="btn-primary" onclick="saveBudget()">Save</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">This will be saved as your default budget.</div>
+    </div>
+  </div>
+
+  <!-- FIXED DEDUCTIONS -->
+  <div class="section-label">Fixed Deductions</div>
+  <div class="item-list" id="fixedList"></div>
+
+  <div class="add-form" id="addFixedForm">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:-2px">Add fixed deduction</div>
+    <div class="add-form-row">
+      <input type="text" id="fixedName" placeholder="Name (e.g. Bus money)">
+      <input type="number" id="fixedAmount" placeholder="€" min="0" step="0.01" style="max-width:90px">
+    </div>
+    <button class="btn-primary" onclick="addFixed()">Add</button>
+  </div>
+
+  <button class="btn-ghost" style="width:100%;margin-top:8px" onclick="toggleForm('addFixedForm')">+ Add fixed deduction</button>
+
+  <!-- COUNTER DEDUCTIONS -->
+  <div class="section-label">Counter Deductions</div>
+  <div class="item-list" id="counterList"></div>
+
+  <div class="add-form" id="addCounterForm">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:-2px">Add counter deduction</div>
+    <div class="add-form-row">
+      <input type="text" id="counterName" placeholder="Name (e.g. Pool)">
+      <input type="number" id="counterCost" placeholder="€/unit" min="0" step="0.01" style="max-width:90px">
+    </div>
+    <button class="btn-primary" onclick="addCounter()">Add</button>
+  </div>
+
+  <button class="btn-ghost" style="width:100%;margin-top:8px" onclick="toggleForm('addCounterForm')">+ Add counter deduction</button>
+
+  <div class="section-label">SUSI Payments 2025/26</div>
+  <div class="susi-card">
+    <div class="susi-header">
+      <div class="susi-title">SUSI<span style="color:var(--accent)">.</span></div>
+      <a class="susi-link" href="https://www.susi.ie/payments/" target="_blank">susi.ie ↗</a>
+    </div>
+    <table class="susi-table" id="susiTable"></table>
+    <div class="days-away" id="daysAway"></div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Higher Education · 2025/26</div>
+  </div>
+
+  <div class="reset-row">
+    <button class="btn-danger" onclick="hardReset()">🗑 Clear everything</button>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const DEFAULT_BUDGET = 150;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('budget_tracker_v2');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return {
+    defaultBudget: DEFAULT_BUDGET,
+    sessionBudget: DEFAULT_BUDGET,
+    fixedItems: [
+      { id: uid(), name: 'Bus money', amount: 21 },
+      { id: uid(), name: 'MOM', amount: 0 }
+    ],
+    counterItems: [
+      { id: uid(), name: 'Pool', costPerUnit: 1.50, count: 0 }
+    ]
+  };
+}
+
+function saveState() {
+  localStorage.setItem('budget_tracker_v2', JSON.stringify(state));
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+let state = loadState();
+
+// ─── COMPUTE ─────────────────────────────────────────────────────────────────
+function totalDeductions() {
+  const fixed = state.fixedItems.reduce((s, i) => s + i.amount, 0);
+  const counters = state.counterItems.reduce((s, i) => s + i.count * i.costPerUnit, 0);
+  return fixed + counters;
+}
+
+function remaining() {
+  return state.sessionBudget - totalDeductions();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const rem = remaining();
+  const pct = Math.max(0, Math.min(100, (rem / state.sessionBudget) * 100)) || 0;
+
+  const remEl = document.getElementById('remainingDisplay');
+  const prog = document.getElementById('progressBar');
+
+  remEl.textContent = '€' + rem.toFixed(2);
+  document.getElementById('budgetOf').textContent = 'of €' + state.sessionBudget.toFixed(2);
+
+  remEl.className = 'budget-remaining';
+  prog.className = 'progress-bar';
+  if (rem < 0) { remEl.classList.add('danger'); prog.classList.add('danger'); }
+  else if (pct < 30) { remEl.classList.add('warn'); prog.classList.add('warn'); }
+
+  prog.style.width = pct + '%';
+
+  // Fixed items
+  const fl = document.getElementById('fixedList');
+  fl.innerHTML = '';
+  if (state.fixedItems.length === 0) {
+    fl.innerHTML = '<div class="empty-msg">No fixed deductions</div>';
+  } else {
+    state.fixedItems.forEach(item => {
+      fl.appendChild(makeFixedCard(item));
+    });
+  }
+
+  // Counter items
+  const cl = document.getElementById('counterList');
+  cl.innerHTML = '';
+  if (state.counterItems.length === 0) {
+    cl.innerHTML = '<div class="empty-msg">No counter deductions</div>';
+  } else {
+    state.counterItems.forEach(item => {
+      cl.appendChild(makeCounterCard(item));
+    });
+  }
+}
+
+function makeFixedCard(item) {
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.innerHTML = `
+    <span class="item-name">${escHtml(item.name)}</span>
+    <span style="color:var(--muted);font-size:12px;margin-right:4px">edit</span>
+    <input type="number" class="inline-edit" value="${item.amount}" min="0" step="0.01"
+      style="width:70px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);"
+      oninput="updateFixedAmount('${item.id}', this.value)">
+    <span class="item-amount">−€${item.amount.toFixed(2)}</span>
+    <button class="delete-btn" onclick="deleteFixed('${item.id}')">×</button>
+  `;
+  return card;
+}
+
+function makeCounterCard(item) {
+  const total = (item.count * item.costPerUnit).toFixed(2);
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.innerHTML = `
+    <span class="item-name">${escHtml(item.name)}<br>
+      <span style="font-size:11px;color:var(--muted)">€${item.costPerUnit.toFixed(2)}/unit</span>
+    </span>
+    <div class="counter-controls">
+      <button class="btn-counter minus" onclick="adjustCounter('${item.id}', -1)">−</button>
+      <span class="counter-val">${item.count}</span>
+      <button class="btn-counter plus" onclick="adjustCounter('${item.id}', 1)">+</button>
+    </div>
+    <span class="item-amount counter-amount">−€${total}</span>
+    <button class="delete-btn" onclick="deleteCounter('${item.id}')">×</button>
+  `;
+  return card;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function toggleEditBudget() {
+  const w = document.getElementById('editBudgetWrap');
+  w.classList.toggle('open');
+  if (w.classList.contains('open')) {
+    document.getElementById('budgetInput').value = state.sessionBudget;
+    document.getElementById('budgetInput').focus();
+  }
+}
+
+function saveBudget() {
+  const val = parseFloat(document.getElementById('budgetInput').value);
+  if (isNaN(val) || val < 0) { toast('Enter a valid amount'); return; }
+  state.defaultBudget = val;
+  state.sessionBudget = val;
+  document.getElementById('editBudgetWrap').classList.remove('open');
+  saveState(); render();
+  toast('Budget saved ✓');
+}
+
+function resetSession() {
+  state.sessionBudget = state.defaultBudget;
+  state.counterItems.forEach(i => i.count = 0);
+  saveState(); render();
+  toast('Session reset');
+}
+
+function hardReset() {
+  if (!confirm('Clear everything and start fresh?')) return;
+  localStorage.removeItem('budget_tracker_v2');
+  state = loadState();
+  saveState(); render();
+  toast('All cleared');
+}
+
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+function addFixed() {
+  const name = document.getElementById('fixedName').value.trim();
+  const amount = parseFloat(document.getElementById('fixedAmount').value);
+  if (!name) { toast('Enter a name'); return; }
+  if (isNaN(amount) || amount < 0) { toast('Enter a valid amount'); return; }
+  state.fixedItems.push({ id: uid(), name, amount });
+  document.getElementById('fixedName').value = '';
+  document.getElementById('fixedAmount').value = '';
+  document.getElementById('addFixedForm').classList.remove('open');
+  saveState(); render();
+  toast(name + ' added ✓');
+}
+
+function updateFixedAmount(id, val) {
+  const item = state.fixedItems.find(i => i.id === id);
+  if (!item) return;
+  const n = parseFloat(val);
+  item.amount = isNaN(n) ? 0 : Math.max(0, n);
+  saveState(); render();
+}
+
+function deleteFixed(id) {
+  state.fixedItems = state.fixedItems.filter(i => i.id !== id);
+  saveState(); render();
+}
+
+function addCounter() {
+  const name = document.getElementById('counterName').value.trim();
+  const cost = parseFloat(document.getElementById('counterCost').value);
+  if (!name) { toast('Enter a name'); return; }
+  if (isNaN(cost) || cost < 0) { toast('Enter a valid cost'); return; }
+  state.counterItems.push({ id: uid(), name, costPerUnit: cost, count: 0 });
+  document.getElementById('counterName').value = '';
+  document.getElementById('counterCost').value = '';
+  document.getElementById('addCounterForm').classList.remove('open');
+  saveState(); render();
+  toast(name + ' added ✓');
+}
+
+function adjustCounter(id, delta) {
+  const item = state.counterItems.find(i => i.id === id);
+  if (!item) return;
+  item.count = Math.max(0, item.count + delta);
+  saveState(); render();
+}
+
+function deleteCounter(id) {
+  state.counterItems = state.counterItems.filter(i => i.id !== id);
+  saveState(); render();
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ─── SUSI ─────────────────────────────────────────────────────────────────────
+const SUSI_DATES = [
+  { month: 'September', date: new Date('2025-09-11') },
+  { month: 'October',   date: new Date('2025-10-09') },
+  { month: 'November',  date: new Date('2025-11-13') },
+  { month: 'December',  date: new Date('2025-12-11') },
+  { month: 'January',   date: new Date('2026-01-15') },
+  { month: 'February',  date: new Date('2026-02-12') },
+  { month: 'March',     date: new Date('2026-03-12') },
+  { month: 'April',     date: new Date('2026-04-09') },
+  { month: 'May',       date: new Date('2026-05-07') },
+];
+
+function renderSusi() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const table = document.getElementById('susiTable');
+  const daysEl = document.getElementById('daysAway');
+
+  let nextDate = null;
+  let nextMonth = '';
+
+  table.innerHTML = SUSI_DATES.map(({ month, date }) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const isPast = d < today;
+    const isNext = !nextDate && !isPast;
+    if (isNext) { nextDate = d; nextMonth = month; }
+
+    const formatted = d.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const cls = isPast ? 'susi-row-past' : isNext ? 'susi-row-next' : '';
+    const badge = isNext ? '<span class="next-badge">next</span>' : '';
+
+    return `<tr class="${cls}">
+      <td>${month}</td>
+      <td>${formatted}${badge}</td>
+    </tr>`;
+  }).join('');
+
+  if (nextDate) {
+    const diff = Math.ceil((nextDate - today) / (1000 * 60 * 60 * 24));
+    daysEl.innerHTML = diff === 0
+      ? '🎉 <span>Payment day today!</span>'
+      : `Next: <b>${nextMonth}</b> — <span>${diff} day${diff !== 1 ? 's' : ''} away</span>`;
+  } else {
+    daysEl.innerHTML = 'All 2025/26 payments complete ✓';
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+render();
+renderSusi();
+
+// ─── SERVICE WORKER ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+</body>
+</html>
